@@ -164,11 +164,24 @@ class SeeMarker(Node):
 # Clicked pixel at (124,61) HSV = (99,231,202)
 # Clicked pixel at (65,65) HSV = (100,211,207)
 
+# yellow
+# Clicked pixel at (38,37) HSV = (28,255,244)
+# Clicked pixel at (68,19) HSV = (27,254,204)
+# Clicked pixel at (90,22) HSV = (25,255,183)
+# Clicked pixel at (63,46) HSV = (28,255,223)
+# Clicked pixel at (84,52) HSV = (27,255,203)
+# Clicked pixel at (92,19) HSV = (25,249,177)
+
+# green
+# Clicked pixel at (79,75) HSV = (83,244,137)
+# Clicked pixel at (102,74) HSV = (81,206,89)
+# Clicked pixel at (98,94) HSV = (80,205,103)
+# Clicked pixel at (76,97) HSV = (81,231,146)
 colours = {
 	"pink":	 	((150,140,190), (170, 170, 255)),
 	"blue":		((85,200,190), (115, 250, 255)),
-	"green":	((40,0,0), (80, 255, 255)),
-	"yellow":	((25,0,0), (32, 255, 255))
+	"green":	((75,200,90), (85, 245, 150)),
+	"yellow":	((20,230,175), (32, 255, 245))
 }
 
 def mouse_callback(event,x,y,flags,param):
