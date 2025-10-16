@@ -2,7 +2,11 @@
 
 # Released under GPLv3: https://www.gnu.org/licenses/gpl-3.0.html
 # Author: Claude Sammut
+<<<<<<< HEAD
 # Last Modified: 2024.10.14
+=======
+# Last Modified: 2025.09.28
+>>>>>>> 3cf2883a0e3eba43ffde83854a65955296d1a92b
 
 # ROS 2 program to subscribe to real-time streaming 
 # video from TurtleBot3 Pi camera and find coloured landmarks.
@@ -23,12 +27,14 @@ from geometry_msgs.msg import Point, PointStamped
 
 import wall_follower.landmark
 from wall_follower.landmark import marker_type
-from wall_follower.landmark import colours
 
 
 field_of_view_h = 62.2
 field_of_view_v = 48.8
-
+focal_length = 3.04
+pixel_size = 0.19
+real_object_size = 100.0
+distance_numerator = real_object_size * focal_length * pixel_size
 
 class SeeMarker(Node):
 	"""
@@ -49,7 +55,7 @@ class SeeMarker(Node):
 		# from the video_frames topic. The queue size is 10 messages.
 		self.subscription = self.create_subscription(
 			Image,
-			'/camera/image_raw', 
+			'/camera/image_raw/compressed', 	# Change to "compressed" for real robot
 			self.listener_callback, 
 			10)
 		self.subscription # prevent unused variable warning
@@ -59,7 +65,6 @@ class SeeMarker(Node):
 
 		self.point_publisher = self.create_publisher(PointStamped, '/marker_position', 10)
 
-
 	def listener_callback(self, data):
 		"""
 		Callback function.
@@ -68,6 +73,10 @@ class SeeMarker(Node):
 		# self.get_logger().info('Receiving video frame')
  
 		# Convert ROS Image message to OpenCV image
+
+
+		# uncompressed the data ////////////////////////////////////////////////
+
 		current_frame = self.br.imgmsg_to_cv2(data, 'bgra8')
 
 		# The following code is a simple example of colour segmentation
@@ -75,7 +84,9 @@ class SeeMarker(Node):
 		
 		# Convert BGR image to HSV
 		hsv_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2HSV)
-
+		cv2.imshow("camera",current_frame)
+		cv2.setMouseCallback("camera", muse_callback, hsv_frame)
+		cv2.waitkey(1)
 		# Find pink blob
 		pink_blob = segment(current_frame, hsv_frame, "pink")
 		if pink_blob:
@@ -86,7 +97,7 @@ class SeeMarker(Node):
 				if blob:
 					(c_x, c_y, c_h, c_d, c_a) = blob
 
-					# Check to see if the blobsa are verically aligned
+					# Check to see if the blobs are verically aligned
 					if abs(pink_x - c_x) > pink_h:
 #						print(f'pink_x = {pink_x}, pink_y = {pink_y}, h = {pink_h}')
 						continue
@@ -95,6 +106,11 @@ class SeeMarker(Node):
 					marker_at.header.stamp = self.get_clock().now().to_msg()
 					marker_at.header.frame_id = 'camera_link'
 
+					"""
+					The next few lines are a hack. Since the markers are always on the ground,
+					we don't use the "z" coordinate for position, so instead we use it to
+					store the parker type. Ugly, but it saves creating a new message type.
+					"""
 					if c_y < pink_y:	# +y is down
 #						print(c, "/ pink", f'{c_d:.2f}, {c_a:.2f}')
 						marker_at.point.z = float(marker_type.index(c + '/pink'))
@@ -118,13 +134,18 @@ class SeeMarker(Node):
 		cv2.waitKey(1)
 
 
-# colours = {
-# 	"pink":	 	((140,0,0), (170, 255, 255)),
-# 	"blue":		((100,0,0), (130, 255, 255)),
-# 	"green":	((40,0,0), (80, 255, 255)),
-# 	"yellow":	((25,0,0), (32, 255, 255))
-# }
+colours = {
+	"pink":	 	((140,0,0), (170, 255, 255)),
+	"blue":		((100,0,0), (130, 255, 255)),
+	"green":	((40,0,0), (80, 255, 255)),
+	"yellow":	((25,0,0), (32, 255, 255))
+}
 
+def muse_callback(event,x,y,flags,param):
+	if event == cv2.EVENT_LBUTTONDOWN:  # 左键点击
+			hsv_frame = param
+			h, s, v = hsv_frame[y, x]
+			print(f"Clicked pixel at ({x},{y}) HSV = ({h},{s},{v})")
 
 def segment(current_frame, hsv_frame, colour):
 	"""
@@ -134,7 +155,7 @@ def segment(current_frame, hsv_frame, colour):
 
 	(lower, upper) = colours[colour]
 
-	# Mask out everything except pink pixels
+	# Mask out everything except pixels of colour parameter
 	mask = cv2.inRange(hsv_frame, lower, upper)
 	result = cv2.bitwise_and(current_frame, current_frame, mask=mask)
 
@@ -174,7 +195,14 @@ def get_stats(blobs, colour):
 
 		if area > largest:
 			largest = area
-			distance = 35.772 * pow(h, -0.859) # obtained experimentally
+			# distance = 35.772 * pow(h, -0.859) # obtained experimentally
+			distance = distance_numerator / h # https://www.baeldung.com/cs/cv-compute-distance-from-object-video
+			"""
+			The condition below accounts for when the marker is at the edge of the screen 
+			and is only paritally visible. The assumption is that if the aspect ratio < 0.8
+			then it is only partially visisble.
+			We need two cases for when the marker is on the left or right edge.
+			"""
 			aspect_ratio = h/w
 			if aspect_ratio < 0.8:
 				if cx < centre:

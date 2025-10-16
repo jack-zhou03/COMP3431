@@ -28,39 +28,18 @@
 #define DEG2RAD (M_PI / 180.0)
 #define RAD2DEG (180.0 / M_PI)
 
-// // This is for 12 Sections
-// #define FRONT		0
-// #define FRONT_LEFT	1
-// #define LEFT_FRONT	2
-// #define LEFT		3
-// #define LEFT_BACK	4
-// #define BACK_LEFT	5
-// #define BACK		6
-// #define BACK_RIGHT	7
-// #define RIGHT_BACK	8
-// #define RIGHT		9
-// #define RIGHT_FRONT	10
-// #define FRONT_RIGHT	11
-
-// This is for 8 Sections
-enum Directions {
-	FRONT,
-	FRONT_LEFT,
-	LEFT,
-	BACK_LEFT,
-	BACK,
-	BACK_RIGHT,
-	RIGHT,
-	FRONT_RIGHT
-}
-// #define FRONT		0
-// #define FRONT_LEFT	1
-// #define LEFT			2
-// #define BACK_LEFT	3
-// #define BACK			4
-// #define BACK_RIGHT	5
-// #define RIGHT		6
-// #define FRONT_RIGHT	7
+#define FRONT		0
+#define FRONT_LEFT	1
+#define LEFT_FRONT	2
+#define LEFT		3
+#define LEFT_BACK	4
+#define BACK_LEFT	5
+#define BACK		6
+#define BACK_RIGHT	7
+#define RIGHT_BACK	8
+#define RIGHT		9
+#define RIGHT_FRONT	10
+#define FRONT_RIGHT	11
 
 #define LINEAR_VELOCITY  0.3
 #define ANGULAR_VELOCITY 1.5
