@@ -17,6 +17,7 @@ from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Image
 import math
 
 from sensor_msgs.msg import Image # Image is the message type
+from sensor_msgs.msg import CompressedImage # CompressedImage message type
 from sensor_msgs.msg import LaserScan # Laser scan message type
 from sensor_msgs.msg import CameraInfo # Need to know camera frame
 from geometry_msgs.msg import Point, PointStamped
@@ -50,7 +51,7 @@ class SeeMarker(Node):
 		# Create the subscriber. This subscriber will receive an Image
 		# from the video_frames topic. The queue size is 10 messages.
 		self.subscription = self.create_subscription(
-			Image,
+			CompressedImage,
 			'/camera/image_raw/compressed', 	# Change to "compressed" for real robot
 			self.listener_callback, 
 			10)
@@ -61,8 +62,23 @@ class SeeMarker(Node):
 
 		self.point_publisher = self.create_publisher(PointStamped, '/marker_position', 10)
 
-	def 
+	
 	def listener_callback(self, data):
+		"""
+    Callback function with debugging.
+    """
+		# self.get_logger().info(f'Received data: format={data.format}, size={len(data.data)} bytes')
+		
+		if len(data.data) == 0:
+			# self.get_logger().error('Data is empty!')
+			return
+		
+		# try:
+		# 	current_frame = self.br.compressed_imgmsg_to_cv2(data)
+		# 	self.get_logger().info(f'Decoded successfully: shape={current_frame.shape}')
+		# except Exception as e:
+		# 	self.get_logger().error(f'Decode failed: {e}')
+		# 	return
 		"""
 		Callback function.
 		"""
@@ -73,17 +89,17 @@ class SeeMarker(Node):
 
 
 		# uncompressed the data ////////////////////////////////////////////////
-
-		current_frame = self.br.imgmsg_to_cv2(data, 'bgra8')
+		# self.get_logger().info('Receiving compressed video frame')
+		current_frame = self.br.compressed_imgmsg_to_cv2(data)
 
 		# The following code is a simple example of colour segmentation
 		# and connected components analysis
 		
 		# Convert BGR image to HSV
 		hsv_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2HSV)
-		cv2.imshow("camera",current_frame)
-		cv2.setMouseCallback("camera", muse_callback, hsv_frame)
-		cv2.waitkey(1)
+		# cv2.imshow("camera",current_frame)
+		
+		# cv2.waitKey(1)
 		# Find pink blob
 		pink_blob = segment(current_frame, hsv_frame, "pink")
 		if pink_blob:
@@ -128,17 +144,34 @@ class SeeMarker(Node):
 
 		# Display camera image
 		cv2.imshow("camera", current_frame)	
+		cv2.setMouseCallback("camera", mouse_callback, hsv_frame)
 		cv2.waitKey(1)
+		
+# pink
+# Clicked pixel at (125,93) HSV = (164,151,230)
+# Clicked pixel at (125,100) HSV = (164,154,229)
+# Clicked pixel at (128,107) HSV = (164,157,231)
+# Clicked pixel at (141,107) HSV = (165,158,224)
+# Clicked pixel at (150,96) HSV = (167,152,207)
+# Clicked pixel at (122,92) HSV = (164,150,231)
+# Clicked pixel at (86,107) HSV = (164,149,230)
 
+# blue
+# Clicked pixel at (121,43) HSV = (99,237,207)
+# Clicked pixel at (115,43) HSV = (99,235,208)
+# Clicked pixel at (127,38) HSV = (99,232,202)
+# Clicked pixel at (129,28) HSV = (100,232,198)
+# Clicked pixel at (124,61) HSV = (99,231,202)
+# Clicked pixel at (65,65) HSV = (100,211,207)
 
 colours = {
-	"pink":	 	((140,0,0), (170, 255, 255)),
-	"blue":		((100,0,0), (130, 255, 255)),
+	"pink":	 	((150,140,190), (170, 170, 255)),
+	"blue":		((85,200,190), (115, 250, 255)),
 	"green":	((40,0,0), (80, 255, 255)),
 	"yellow":	((25,0,0), (32, 255, 255))
 }
 
-def muse_callback(event,x,y,flags,param):
+def mouse_callback(event,x,y,flags,param):
 	if event == cv2.EVENT_LBUTTONDOWN:  # 左键点击
 			hsv_frame = param
 			h, s, v = hsv_frame[y, x]
