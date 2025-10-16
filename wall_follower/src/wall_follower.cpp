@@ -241,6 +241,7 @@ void WallFollower::update_callback()
         target_linear = 0.3;
         target_angular = 0.0;
     }
+	smooth_cmd_vel(target_linear, target_angular);
     // if (near_start) {
     //     target_linear = 0.0;
     //     target_angular = 0.0;
