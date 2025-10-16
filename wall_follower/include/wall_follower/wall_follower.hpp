@@ -73,7 +73,7 @@ private:
 	void update_cmd_vel(double linear, double angular);
 	void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
 	void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
-
+	void smooth_cmd_vel(double target_linear, double target_angular);
 	void Controller(double front_distance, double left_distance);
 };
 #endif  // TURTLEBOT3_GAZEBO__TURTLEBOT3_DRIVE_HPP_

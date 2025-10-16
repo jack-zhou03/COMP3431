@@ -23,7 +23,7 @@ WallFollower::WallFollower()
 
 	robot_pose_ = 0.0;
 	near_start = false;
-
+	
 	/************************************************************
 	** Initialise ROS publishers and subscribers
 	************************************************************/
@@ -46,7 +46,7 @@ WallFollower::WallFollower()
 	/************************************************************
 	** Initialise ROS timers
 	************************************************************/
-	update_timer_ = this->create_wall_timer(10ms, std::bind(&WallFollower::update_callback, this));
+	update_timer_ = this->create_wall_timer(5ms, std::bind(&WallFollower::update_callback, this));
 
 	RCLCPP_INFO(this->get_logger(), "Wall follower node has been initialised");
 }
@@ -61,6 +61,36 @@ WallFollower::~WallFollower()
 ********************************************************************************/
 
 #define START_RANGE	0.2
+void WallFollower::smooth_cmd_vel(double target_linear, double target_angular)
+{
+    const double MAX_LINEAR_ACCEL = 5.0;   // Linear acceleration (m/s²)
+    const double MAX_ANGULAR_ACCEL = 10.0; // Angular acceleration (rad/s²)
+    const double dt = 0.005;               // Time interval (5ms)
+    
+    static auto current_linear_vel_ = 0.0;  // Initialize linear velocity
+    static auto current_angular_vel_ = 0.0; // Initialize angular velocity
+    
+    // Calculate maximum velocity change
+    double max_linear_change = MAX_LINEAR_ACCEL * dt;
+    double max_angular_change = MAX_ANGULAR_ACCEL * dt;
+    
+    // Smooth linear velocity
+    double linear_diff = target_linear - current_linear_vel_;
+    if (fabs(linear_diff) > max_linear_change)
+        current_linear_vel_ += (linear_diff > 0) ? max_linear_change : -max_linear_change;
+    else
+        current_linear_vel_ = target_linear;
+    
+    // Smooth angular velocity
+    double angular_diff = target_angular - current_angular_vel_;
+    if (fabs(angular_diff) > max_angular_change)
+        current_angular_vel_ += (angular_diff > 0) ? max_angular_change : -max_angular_change;
+    else
+        current_angular_vel_ = target_angular;
+    
+    // Send smoothed velocity
+    update_cmd_vel(current_linear_vel_, current_angular_vel_);
+}
 
 void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
@@ -161,18 +191,90 @@ void WallFollower::update_callback()
 	// else if (scan_data_[FRONT_RIGHT] < 0.2) update_cmd_vel(0.3, 1.5); 4
 	// else if (scan_data_[LEFT_FRONT] > 0.2) update_cmd_vel(1, 1.5); 5
 	// else update_cmd_vel(0.3, 0.0); 6
-
+	// static auto time_last = this->now();
+	// auto time_now = this->now();
+	// auto elapsed = (time_last - time_now).seconds();
+	// fprintf(stderr, "Update frequency: %.2f Hz\n", 1.0/elapsed);
+	// time_last = time_now;
 	double x = 0.4;
 
 
-	if (near_start) {update_cmd_vel(0.0, 0.0); exit(0);}
-	else if (scan_data_[LEFT_FRONT] > 0.68) {update_cmd_vel(1.2 - x, 2.2 );fprintf(stderr, "1\n");}
-	else if (scan_data_[FRONT] < 0.48) {update_cmd_vel(0, -1.5);fprintf(stderr, "2\n");}
-	// else if (scan_data_[LEFT] < 0.4) {update_cmd_vel(1, -1.5);fprintf(stderr, "3\n");}
-	else if (scan_data_[FRONT_LEFT] < 0.46) {update_cmd_vel(1 - x, -0.5);fprintf(stderr, "4\n");}
-	else if (scan_data_[RIGHT_FRONT] < 0.4) {update_cmd_vel(1 - x, 0.5);fprintf(stderr, "5\n");}
-	else if (scan_data_[LEFT_FRONT] > 0.4) {update_cmd_vel(1.2 - x, 2.2);fprintf(stderr, "6\n");}
-	else {update_cmd_vel(0.3, 0);fprintf(stderr, "7\n");}
+	// if (near_start) {update_cmd_vel(0.0, 0.0); exit(0);}
+	// else if (scan_data_[LEFT_FRONT] > 0.68) {update_cmd_vel(1.2 - x, 2.2 );fprintf(stderr, "1\n");}
+	// else if (scan_data_[FRONT] < 0.48) {update_cmd_vel(0, -1.5);fprintf(stderr, "2\n");}
+	// // else if (scan_data_[LEFT] < 0.4) {update_cmd_vel(1, -1.5);fprintf(stderr, "3\n");}
+	// else if (scan_data_[FRONT_LEFT] < 0.46) {update_cmd_vel(1 - x, -0.5);fprintf(stderr, "4\n");}
+	// else if (scan_data_[RIGHT_FRONT] < 0.4) {update_cmd_vel(1 - x, 0.5);fprintf(stderr, "5\n");}
+	// else if (scan_data_[LEFT_FRONT] > 0.4) {update_cmd_vel(1.2 - x, 2.2);fprintf(stderr, "6\n");}
+	// else {update_cmd_vel(0.3, 0);fprintf(stderr, "7\n");}
+
+    // double x = 0.4;
+    double target_linear, target_angular;
+
+    if (near_start) {
+        target_linear = 0.0;
+        target_angular = 0.0;
+        update_cmd_vel(target_linear, target_angular);
+        exit(0);
+    }
+    else if (scan_data_[LEFT_FRONT] > 0.68) {
+        target_linear = 1.2 - x;
+        target_angular = 2.2;
+    }
+    else if (scan_data_[FRONT] < 0.48) {
+        target_linear = 0.0;
+        target_angular = -1.5;
+    }
+    else if (scan_data_[FRONT_LEFT] < 0.46) {
+        target_linear = 1.0 - x;
+        target_angular = -0.5;
+    }
+    else if (scan_data_[RIGHT_FRONT] < 0.4) {
+        target_linear = 1.0 - x;
+        target_angular = 0.5;
+    }
+    else if (scan_data_[LEFT_FRONT] > 0.4) {
+        target_linear = 1.2 - x;
+        target_angular = 2.2;
+    }
+    else {
+        target_linear = 0.3;
+        target_angular = 0.0;
+    }
+    // if (near_start) {
+    //     target_linear = 0.0;
+    //     target_angular = 0.0;
+    //     update_cmd_vel(target_linear, target_angular);
+	// 	// update_cmd_vel(target_linear, target_angular);
+    //     exit(0);
+    // }
+    // else if (scan_data_[LEFT_FRONT] > 0.9) {
+    //     target_linear = 0.2;
+    //     target_angular = 1.5;
+    // }
+    // else if (scan_data_[FRONT] < 0.7) {
+    //     target_linear = 0.0;
+    //     target_angular = -1.5;
+    // }
+    // else if (scan_data_[FRONT_LEFT] < 0.6) {
+    //     target_linear = 0.3;
+    //     target_angular = -1.5;
+    // }
+    // else if (scan_data_[FRONT_RIGHT] < 0.6) {
+    //     target_linear = 0.3;
+    //     target_angular = 1.5;
+    // }
+    // else if (scan_data_[LEFT_FRONT] > 0.6) {
+    //     target_linear = 0.3;
+    //     target_angular = 1.5;
+    // }
+    // else {
+    //     target_linear = 0.3;
+    //     target_angular = 0.0;
+    // }
+    
+    // update_cmd_vel(target_linear, target_angular);
+
 
 	fprintf(stderr, "scan FRONT: %f\n", scan_data_[FRONT]);
 	fprintf(stderr, "scan FRONT LEFT: %f\n", scan_data_[FRONT_LEFT]);
@@ -180,7 +282,6 @@ void WallFollower::update_callback()
 	fprintf(stderr, "scan RIGHT FRONT: %f\n", scan_data_[RIGHT_FRONT]);
 	
 }
-
 
 
 /*******************************************************************************
