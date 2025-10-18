@@ -15,7 +15,7 @@ from rclpy.node import Node # Handles the creation of nodes
 import cv2 # OpenCV library
 from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 import math
-
+import numpy as np
 from sensor_msgs.msg import Image # Image is the message type
 from sensor_msgs.msg import CompressedImage # CompressedImage message type
 from sensor_msgs.msg import LaserScan # Laser scan message type
@@ -30,7 +30,7 @@ field_of_view_h = 62.2
 field_of_view_v = 48.8
 focal_length = 3.04
 pixel_size = 0.19
-real_object_size = 100.0
+real_object_size = 100.0 # need to test the real size of the marker in mm
 distance_numerator = real_object_size * focal_length * pixel_size
 
 class SeeMarker(Node):
@@ -62,7 +62,6 @@ class SeeMarker(Node):
 
 		self.point_publisher = self.create_publisher(PointStamped, '/marker_position', 10)
 
-	
 	def listener_callback(self, data):
 		"""
     Callback function with debugging.
@@ -101,18 +100,19 @@ class SeeMarker(Node):
 		
 		# cv2.waitKey(1)
 		# Find pink blob
-		pink_blob = segment(current_frame, hsv_frame, "pink")
+		combined_result = np.zeros_like(current_frame)
+		pink_result, pink_blob = segment(current_frame, hsv_frame, "pink")
 		if pink_blob:
 			(pink_x, pink_y, pink_h, p_d, p_a) = pink_blob
-
+			combined_result = cv2.bitwise_or(combined_result, pink_result)
 			for c in ["blue", "green", "yellow"]:
-				blob = segment(current_frame, hsv_frame, c)
+				color_result, blob = segment(current_frame, hsv_frame, c)
 				if blob:
 					(c_x, c_y, c_h, c_d, c_a) = blob
-
+					combined_result = cv2.bitwise_or(combined_result, color_result)
 					# Check to see if the blobs are verically aligned
 					if abs(pink_x - c_x) > pink_h:
-#						print(f'pink_x = {pink_x}, pink_y = {pink_y}, h = {pink_h}')
+						print(f'pink_x = {pink_x}, pink_y = {pink_y}, h = {pink_h}')
 						continue
 
 					marker_at = PointStamped()
@@ -125,10 +125,10 @@ class SeeMarker(Node):
 					store the parker type. Ugly, but it saves creating a new message type.
 					"""
 					if c_y < pink_y:	# +y is down
-#						print(c, "/ pink", f'{c_d:.2f}, {c_a:.2f}')
+						print(c, "/ pink", f'{c_d:.2f}, {c_a:.2f}')
 						marker_at.point.z = float(marker_type.index(c + '/pink'))
 					else:
-#						print("pink / ", c, f'{p_d:.2f}, {p_a:.2f}')
+						print("pink / ", c, f'{p_d:.2f}, {p_a:.2f}')
 						marker_at.point.z = float(marker_type.index('pink/' + c))
 					
 					x, y = polar_to_cartesian(c_d, c_a)
@@ -136,14 +136,15 @@ class SeeMarker(Node):
 					marker_at.point.x = x
 					marker_at.point.y = y
 
-#					print(f'Camera coordinates: {x}, {y}')
+					print(f'Camera coordinates: {x}, {y}')
 					self.point_publisher.publish(marker_at)
-#					self.get_logger().info('Published Point: x=%f, y=%f, z=%f' %
-#						(marker_at.point.x, marker_at.point.y, marker_at.point.z))
+					self.get_logger().info('Published Point: x=%f, y=%f, z=%f' %
+						(marker_at.point.x, marker_at.point.y, marker_at.point.z))
 
 
 		# Display camera image
-		cv2.imshow("camera", current_frame)	
+		cv2.imshow("camera", current_frame)
+		cv2.imshow("result", combined_result)
 		cv2.setMouseCallback("camera", mouse_callback, hsv_frame)
 		cv2.waitKey(1)
 		
@@ -177,15 +178,28 @@ class SeeMarker(Node):
 # Clicked pixel at (102,74) HSV = (81,206,89)
 # Clicked pixel at (98,94) HSV = (80,205,103)
 # Clicked pixel at (76,97) HSV = (81,231,146)
+# colours = {
+# 	"pink":	 	((150,140,190), (170, 170, 255)),
+# 	"blue":		((85,200,190), (115, 250, 255)),
+# 	"green":	((75,200,90), (85, 245, 150)),
+# 	"yellow":	((20,230,175), (32, 255, 245))
+# }
+# colours = {
+# 	"pink":	 	((150,140,190), (170, 170, 255)),
+# 	"blue":		((85,200,190), (115, 250, 255)),
+# 	"green":	((75,200,90), (85, 245, 150)),
+# 	"yellow":	((20,230,175), (32, 255, 245))
+# }
+
 colours = {
-	"pink":	 	((150,140,190), (170, 170, 255)),
-	"blue":		((85,200,190), (115, 250, 255)),
-	"green":	((75,200,90), (85, 245, 150)),
-	"yellow":	((20,230,175), (32, 255, 245))
+	"pink":	 	((140,0,0), (170, 255, 255)),
+	"blue":		((100,0,0), (130, 255, 255)),
+	"green":	((40,0,0), (80, 255, 255)),
+	"yellow":	((25,0,0), (32, 255, 255))
 }
 
 def mouse_callback(event,x,y,flags,param):
-	if event == cv2.EVENT_LBUTTONDOWN:  # 左键点击
+	if event == cv2.EVENT_LBUTTONDOWN:  # click the left mouse button
 			hsv_frame = param
 			h, s, v = hsv_frame[y, x]
 			print(f"Clicked pixel at ({x},{y}) HSV = ({h},{s},{v})")
@@ -206,10 +220,10 @@ def segment(current_frame, hsv_frame, colour):
 	blobs = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
 
 	# Display masked image
-#	cv2.imshow("result", result)
- 
+	# cv2.imshow("result", result)
+
 	# Print statistics for each blob (connected component)
-	return get_stats(blobs, colour)
+	return result, get_stats(blobs, colour)
 
 
 def get_stats(blobs, colour):
@@ -234,7 +248,7 @@ def get_stats(blobs, colour):
 		h = stats[i, cv2.CC_STAT_HEIGHT]
 		area = stats[i, cv2.CC_STAT_AREA]
 		(cx, cy) = centroids[i]
-#		print(colour, x, y, w, h, area, cx, cy)
+		print(colour, x, y, w, h, area, cx, cy)
 
 		if area > largest:
 			largest = area
@@ -247,7 +261,8 @@ def get_stats(blobs, colour):
 			We need two cases for when the marker is on the left or right edge.
 			"""
 			aspect_ratio = h/w
-			if aspect_ratio < 0.8:
+			# I think we need do some change for the aspect ratio as well
+			if aspect_ratio < 0.8: 
 				if cx < centre:
 					cx += h-w
 				else:
