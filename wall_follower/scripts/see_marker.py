@@ -29,10 +29,14 @@ from wall_follower.landmark import marker_type
 field_of_view_h = 62.2
 field_of_view_v = 48.8
 focal_length = 3.04
-pixel_size = 0.19
-real_object_size = 100.0 # need to test the real size of the marker in mm
+pixel_size = 100     # need to test the real pixel size in mm 
+# pixel_size = 892.86
+# 121.7105
+real_object_size = 105.0 
 distance_numerator = real_object_size * focal_length * pixel_size
 
+CALIBRATION_MODE = False
+CALIBRATION_DISTANCE = 850.0 # in mm, means 1 meter (1000)
 class SeeMarker(Node):
 	"""
 	Create an ImageSubscriber class, which is a subclass of the Node class.
@@ -101,12 +105,12 @@ class SeeMarker(Node):
 		# cv2.waitKey(1)
 		# Find pink blob
 		combined_result = np.zeros_like(current_frame)
-		pink_result, pink_blob = segment(current_frame, hsv_frame, "pink")
+		pink_result, pink_blob = segment(current_frame, hsv_frame, "pink", self)
 		if pink_blob:
 			(pink_x, pink_y, pink_h, p_d, p_a) = pink_blob
 			combined_result = cv2.bitwise_or(combined_result, pink_result)
 			for c in ["blue", "green", "yellow"]:
-				color_result, blob = segment(current_frame, hsv_frame, c)
+				color_result, blob = segment(current_frame, hsv_frame, c, self)
 				if blob:
 					(c_x, c_y, c_h, c_d, c_a) = blob
 					combined_result = cv2.bitwise_or(combined_result, color_result)
@@ -132,9 +136,18 @@ class SeeMarker(Node):
 						marker_at.point.z = float(marker_type.index('pink/' + c))
 					
 					x, y = polar_to_cartesian(c_d, c_a)
+					self.get_logger().info(f'Polar to Cartesian: x={x:.2f} , y={y:.2f}')
+					real_x_y = math.sqrt(x**2 + y**2)
+					self.get_logger().info(f'real_x_y: {real_x_y:.2f} ')
 
+
+					# x = x / 0.00174
+					# y = y / 0.00174
 					marker_at.point.x = x
 					marker_at.point.y = y
+
+					distance = math.sqrt(x**2 + y**2)
+					self.get_logger().info(f'distance to marker: {distance:.2f} mm')
 
 					print(f'Camera coordinates: {x}, {y}')
 					self.point_publisher.publish(marker_at)
@@ -178,13 +191,19 @@ class SeeMarker(Node):
 # Clicked pixel at (102,74) HSV = (81,206,89)
 # Clicked pixel at (98,94) HSV = (80,205,103)
 # Clicked pixel at (76,97) HSV = (81,231,146)
-colours = {
-	"pink":	 	((150,140,190), (170, 170, 255)),
-	"blue":		((85,200,190), (115, 250, 255)),
-	"green":	((75,200,90), (85, 245, 150)),
-	"yellow":	((20,230,175), (32, 255, 245))
-}
+# colours = {
+# 	"pink":	 	((150,110,130), (170, 170, 255)),
+# 	"blue":		((85,140,100), (115, 250, 255)),
+# 	"green":	((75,190,80), (85, 245, 150)),
+# 	"yellow":	((20,210,170), (32, 255, 245))
+# }
 
+colours = {
+	"pink":	 	((140,70,100), (170, 255, 255)),
+	"blue":		((100,100,100), (130, 255, 255)),
+	"green":	((50,70,70), (99, 255, 255)),
+	"yellow":	((10,100,150), (40, 255, 255))
+}
 
 # colours = {
 # 	"pink":	 	((140,0,0), (170, 255, 255)),
@@ -193,13 +212,20 @@ colours = {
 # 	"yellow":	((25,0,0), (32, 255, 255))
 # }
 
+# colours = {
+# 	"pink":   ((140, 60, 80), (170, 170, 255)),  # 更严格
+# 	"blue":		((100,0,0), (130, 255, 255)),
+#  	"green":	((40,0,0), (80, 255, 255)),
+# 	"yellow": ((20, 90, 90), (32, 255, 245))
+# }
+
 def mouse_callback(event,x,y,flags,param):
 	if event == cv2.EVENT_LBUTTONDOWN:  # click the left mouse button
 			hsv_frame = param
 			h, s, v = hsv_frame[y, x]
 			print(f"Clicked pixel at ({x},{y}) HSV = ({h},{s},{v})")
 
-def segment(current_frame, hsv_frame, colour):
+def segment(current_frame, hsv_frame, colour, node):
 	"""
 	Mask out everything except the specified colour
 	Connect pixels to form a blob
@@ -218,10 +244,10 @@ def segment(current_frame, hsv_frame, colour):
 	# cv2.imshow("result", result)
 
 	# Print statistics for each blob (connected component)
-	return result, get_stats(blobs, colour)
+	return result, get_stats(blobs, colour, node)
 
 
-def get_stats(blobs, colour):
+def get_stats(blobs, colour, node):
 	"""
 	Print statistics for each blob (connected component)
 	of the specified colour
@@ -234,8 +260,10 @@ def get_stats(blobs, colour):
 
 	largest = 0
 	rval = None
-	centre = 320 # 640/2
-
+	# centre = 320 # 640/2
+	centre = 80 # 160/2
+	MIN_HEIGHT = 10 *0.25
+	MIN_AREA = 50 *0.25
 	for i in range(1, numLabels):
 		x = stats[i, cv2.CC_STAT_LEFT]
 		y = stats[i, cv2.CC_STAT_TOP]
@@ -243,11 +271,21 @@ def get_stats(blobs, colour):
 		h = stats[i, cv2.CC_STAT_HEIGHT]
 		area = stats[i, cv2.CC_STAT_AREA]
 		(cx, cy) = centroids[i]
-		print(colour, x, y, w, h, area, cx, cy)
-
+		# print(colour, x, y, w, h, area, cx, cy)
+		# node.get_logger().info(f'height of pixels = {h}')
+		if h < MIN_HEIGHT:
+			# node.get_logger().info(f'{colour}: h={h} too small, skipping')
+			continue
+    
+		if area < MIN_AREA:
+			# node.get_logger().info(f'{colour}: area={area} too small, skipping')
+			continue
 		if area > largest:
 			largest = area
-			# distance = 35.772 * pow(h, -0.859) # obtained experimentally
+			distance = 35.772 * pow(h, -0.859) # obtained experimentally
+			if CALIBRATION_MODE:
+				calculated_pixel_size = (CALIBRATION_DISTANCE * h) / (real_object_size * focal_length)
+				node.get_logger().info(f'Calibrated pixel size = {calculated_pixel_size:.4f} pixels/mm')
 			distance = distance_numerator / h # https://www.baeldung.com/cs/cv-compute-distance-from-object-video
 			"""
 			The condition below accounts for when the marker is at the edge of the screen 
@@ -255,14 +293,17 @@ def get_stats(blobs, colour):
 			then it is only partially visisble.
 			We need two cases for when the marker is on the left or right edge.
 			"""
-			aspect_ratio = h/w
+			# aspect_ratio = h/w
+			aspect_ratio = w/h
+			node.get_logger().info(f'{colour} LARGEST: h={h}, distance={distance:.2f}, aspect_ratio={aspect_ratio:.2f}')
 			# I think we need do some change for the aspect ratio as well
 			if aspect_ratio < 0.8: 
 				if cx < centre:
 					cx += h-w
 				else:
 					cx -= h-w
-			angle = (centre - cx) * field_of_view_h / 640
+			# angle = (centre - cx) * field_of_view_h / 640
+			angle = (centre - cx) * field_of_view_h / 120
 			if angle < 0:
 				angle += 360
 			rval = (cx, cy, h, distance, angle)
