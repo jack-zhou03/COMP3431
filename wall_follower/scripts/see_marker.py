@@ -29,10 +29,10 @@ from wall_follower.landmark import marker_type
 field_of_view_h = 62.2
 field_of_view_v = 48.8
 focal_length = 3.04
-pixel_size = 100     # need to test the real pixel size in mm 
+pixel_size = 105     # need to test the real pixel size in mm 
 # pixel_size = 892.86
 # 121.7105
-real_object_size = 105.0 
+real_object_size = 100.0 
 distance_numerator = real_object_size * focal_length * pixel_size
 
 CALIBRATION_MODE = False
