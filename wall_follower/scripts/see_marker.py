@@ -29,7 +29,8 @@ from wall_follower.landmark import marker_type
 field_of_view_h = 62.2
 field_of_view_v = 48.8
 focal_length = 3.04
-pixel_size = 105     # need to test the real pixel size in mm 
+pixel_size = 105     # need to test the real pixel size in mm
+# pixel_size = 0.19 
 # pixel_size = 892.86
 # 121.7105
 real_object_size = 100.0 
@@ -68,8 +69,8 @@ class SeeMarker(Node):
 
 	def listener_callback(self, data):
 		"""
-    Callback function with debugging.
-    """
+		Callback function with debugging.
+		"""
 		# self.get_logger().info(f'Received data: format={data.format}, size={len(data.data)} bytes')
 		
 		if len(data.data) == 0:
@@ -87,14 +88,15 @@ class SeeMarker(Node):
 		"""
 		# Display the message on the console
 		# self.get_logger().info('Receiving video frame')
- 
-		# Convert ROS Image message to OpenCV image
 
+		# Convert ROS Image message to OpenCV image
 
 		# uncompressed the data ////////////////////////////////////////////////
 		# self.get_logger().info('Receiving compressed video frame')
 		current_frame = self.br.compressed_imgmsg_to_cv2(data)
-
+		height, width = current_frame.shape[:2]
+		self.get_logger().info(f'Camera resolution: {width}x{height}')
+		
 		# The following code is a simple example of colour segmentation
 		# and connected components analysis
 		
@@ -140,7 +142,6 @@ class SeeMarker(Node):
 					real_x_y = math.sqrt(x**2 + y**2)
 					self.get_logger().info(f'real_x_y: {real_x_y:.2f} ')
 
-
 					# x = x / 0.00174
 					# y = y / 0.00174
 					marker_at.point.x = x
@@ -153,7 +154,6 @@ class SeeMarker(Node):
 					self.point_publisher.publish(marker_at)
 					self.get_logger().info('Published Point: x=%f, y=%f, z=%f' %
 						(marker_at.point.x, marker_at.point.y, marker_at.point.z))
-
 
 		# Display camera image
 		cv2.imshow("camera", current_frame)
@@ -213,7 +213,7 @@ colours = {
 # }
 
 # colours = {
-# 	"pink":   ((140, 60, 80), (170, 170, 255)),  # 更严格
+# 	"pink":   ((140, 60, 80), (170, 170, 255)),  # more strict
 # 	"blue":		((100,0,0), (130, 255, 255)),
 #  	"green":	((40,0,0), (80, 255, 255)),
 # 	"yellow": ((20, 90, 90), (32, 255, 245))
@@ -282,7 +282,7 @@ def get_stats(blobs, colour, node):
 			continue
 		if area > largest:
 			largest = area
-			distance = 35.772 * pow(h, -0.859) # obtained experimentally
+			# distance = 35.772 * pow(h, -0.859) # obtained experimentally
 			if CALIBRATION_MODE:
 				calculated_pixel_size = (CALIBRATION_DISTANCE * h) / (real_object_size * focal_length)
 				node.get_logger().info(f'Calibrated pixel size = {calculated_pixel_size:.4f} pixels/mm')
@@ -303,7 +303,7 @@ def get_stats(blobs, colour, node):
 				else:
 					cx -= h-w
 			# angle = (centre - cx) * field_of_view_h / 640
-			angle = (centre - cx) * field_of_view_h / 120
+			angle = (centre - cx) * field_of_view_h / 160
 			if angle < 0:
 				angle += 360
 			rval = (cx, cy, h, distance, angle)
