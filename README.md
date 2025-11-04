@@ -44,6 +44,7 @@ angle = (centre - cx) * field_of_view_h / 160
 **4. Distance Calculation**
 - Approach 1: `distance = distance_numerator / h` (adjust `pixel_size`)
 - Approach 2: `distance = 35.772 * pow(h, -0.859)` (experimental)
+If using approach 2, also modify lines 145 and 146 in see_marker.py accordingly.
 
 ### `landmark.py`
 
