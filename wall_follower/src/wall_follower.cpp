@@ -7,14 +7,14 @@
 #include "wall_follower/wall_follower.hpp"
 
 #include <memory>
-#include <sstream>
+
+
 
 using namespace std::chrono_literals;
 
 WallFollower::WallFollower()
 : Node("wall_follower_node")
 {
-
 	/************************************************************
 	** Initialise variables
 	************************************************************/
@@ -23,7 +23,7 @@ WallFollower::WallFollower()
 
 	robot_pose_ = 0.0;
 	near_start = false;
-	
+
 	/************************************************************
 	** Initialise ROS publishers and subscribers
 	************************************************************/
@@ -46,7 +46,7 @@ WallFollower::WallFollower()
 	/************************************************************
 	** Initialise ROS timers
 	************************************************************/
-	update_timer_ = this->create_wall_timer(5ms, std::bind(&WallFollower::update_callback, this));
+	update_timer_ = this->create_wall_timer(10ms, std::bind(&WallFollower::update_callback, this));
 
 	RCLCPP_INFO(this->get_logger(), "Wall follower node has been initialised");
 }
@@ -61,36 +61,6 @@ WallFollower::~WallFollower()
 ********************************************************************************/
 
 #define START_RANGE	0.2
-void WallFollower::smooth_cmd_vel(double target_linear, double target_angular)
-{
-    const double MAX_LINEAR_ACCEL = 5.0;   // Linear acceleration (m/s²)
-    const double MAX_ANGULAR_ACCEL = 10.0; // Angular acceleration (rad/s²)
-    const double dt = 0.005;               // Time interval (5ms)
-    
-    static auto current_linear_vel_ = 0.0;  // Initialize linear velocity
-    static auto current_angular_vel_ = 0.0; // Initialize angular velocity
-    
-    // Calculate maximum velocity change
-    double max_linear_change = MAX_LINEAR_ACCEL * dt;
-    double max_angular_change = MAX_ANGULAR_ACCEL * dt;
-    
-    // Smooth linear velocity
-    double linear_diff = target_linear - current_linear_vel_;
-    if (fabs(linear_diff) > max_linear_change)
-        current_linear_vel_ += (linear_diff > 0) ? max_linear_change : -max_linear_change;
-    else
-        current_linear_vel_ = target_linear;
-    
-    // Smooth angular velocity
-    double angular_diff = target_angular - current_angular_vel_;
-    if (fabs(angular_diff) > max_angular_change)
-        current_angular_vel_ += (angular_diff > 0) ? max_angular_change : -max_angular_change;
-    else
-        current_angular_vel_ = target_angular;
-    
-    // Send smoothed velocity
-    update_cmd_vel(current_linear_vel_, current_angular_vel_);
-}
 
 void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
@@ -110,11 +80,6 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
 	double current_x =  msg->pose.pose.position.x;
 	double current_y =  msg->pose.pose.position.y;
-
-	std::stringstream ss;
-	// ss << "Odom: " << current_x << ", " << current_y << ", " << robot_pose_ << "\n";
-	//RCLCPP_INFO(this->get_logger(), "from odomo: x=%.2f, y=%.2f, yaw=%.2f", current_x, current_y, robot_pose_);
-	// fprintf(stderr, "Coordinates: x=%.2f, y=%.2f, yaw=%.2f\n", current_x, current_y, robot_pose_);
 	if (first)
 	{
 		start_x = current_x;
@@ -160,10 +125,6 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 				closest = msg->ranges.at(angle);
 		scan_data_[i] = closest;
 	}
-
-	for (int i = 0; i < 12; i++) {
-		if (scan_data_[i] == 0) scan_data_[i] = msg->range_max;
-	}
 }
 
 void WallFollower::update_cmd_vel(double linear, double angular)
@@ -184,6 +145,17 @@ bool pl_near;
 
 void WallFollower::update_callback()
 {
+	/*Default:
+		if (near_start) {update_cmd_vel(0.0, 0.0); exit(0);}
+		else if (scan_data_[LEFT_FRONT] > 0.9) update_cmd_vel(0.2, 1.5);
+		else if (scan_data_[FRONT] < 0.7) update_cmd_vel(0.0, -1.5);
+		else if (scan_data_[FRONT_LEFT] < 0.6) update_cmd_vel(0.3, -1.5);
+		else if (scan_data_[FRONT_RIGHT] < 0.6) update_cmd_vel(0.3, 1.5);
+		else if (scan_data_[LEFT_FRONT] > 0.6) update_cmd_vel(0.3, 1.5);
+		else update_cmd_vel(0.3, 0.0);
+	*/
+
+
 	// if (near_start) {update_cmd_vel(0.0, 0.0); exit(0);} 
 	// else if (scan_data_[LEFT_FRONT] >  0.34) update_cmd_vel(2, 1.2); 1
 	// else if (scan_data_[FRONT] < 0.32) update_cmd_vel(0.2, -1.5); 2
@@ -191,12 +163,8 @@ void WallFollower::update_callback()
 	// else if (scan_data_[FRONT_RIGHT] < 0.2) update_cmd_vel(0.3, 1.5); 4
 	// else if (scan_data_[LEFT_FRONT] > 0.2) update_cmd_vel(1, 1.5); 5
 	// else update_cmd_vel(0.3, 0.0); 6
-	// static auto time_last = this->now();
-	// auto time_now = this->now();
-	// auto elapsed = (time_last - time_now).seconds();
-	// fprintf(stderr, "Update frequency: %.2f Hz\n", 1.0/elapsed);
-	// time_last = time_now;
-	double x = 0.4;
+
+	// double x = 0.4;
 
 
 	// if (near_start) {update_cmd_vel(0.0, 0.0); exit(0);}
@@ -208,81 +176,85 @@ void WallFollower::update_callback()
 	// else if (scan_data_[LEFT_FRONT] > 0.4) {update_cmd_vel(1.2 - x, 2.2);fprintf(stderr, "6\n");}
 	// else {update_cmd_vel(0.3, 0);fprintf(stderr, "7\n");}
 
-    // double x = 0.4;
-    double target_linear, target_angular;
+	bool test = true;
 
-    if (near_start) {
-        target_linear = 0.0;
-        target_angular = 0.0;
-        update_cmd_vel(target_linear, target_angular);
-        exit(0);
-    }
-    else if (scan_data_[LEFT_FRONT] > 0.68) {
-        target_linear = 1.2 - x;
-        target_angular = 2.2;
-    }
-    else if (scan_data_[FRONT] < 0.48) {
-        target_linear = 0.0;
-        target_angular = -1.5;
-    }
-    else if (scan_data_[FRONT_LEFT] < 0.46) {
-        target_linear = 1.0 - x;
-        target_angular = -0.5;
-    }
-    else if (scan_data_[RIGHT_FRONT] < 0.4) {
-        target_linear = 1.0 - x;
-        target_angular = 0.5;
-    }
-    else if (scan_data_[LEFT_FRONT] > 0.4) {
-        target_linear = 1.2 - x;
-        target_angular = 2.2;
-    }
-    else {
-        target_linear = 0.3;
-        target_angular = 0.0;
-    }
-	smooth_cmd_vel(target_linear, target_angular);
-    // if (near_start) {
-    //     target_linear = 0.0;
-    //     target_angular = 0.0;
-    //     update_cmd_vel(target_linear, target_angular);
-	// 	// update_cmd_vel(target_linear, target_angular);
-    //     exit(0);
-    // }
-    // else if (scan_data_[LEFT_FRONT] > 0.9) {
-    //     target_linear = 0.2;
-    //     target_angular = 1.5;
-    // }
-    // else if (scan_data_[FRONT] < 0.7) {
-    //     target_linear = 0.0;
-    //     target_angular = -1.5;
-    // }
-    // else if (scan_data_[FRONT_LEFT] < 0.6) {
-    //     target_linear = 0.3;
-    //     target_angular = -1.5;
-    // }
-    // else if (scan_data_[FRONT_RIGHT] < 0.6) {
-    //     target_linear = 0.3;
-    //     target_angular = 1.5;
-    // }
-    // else if (scan_data_[LEFT_FRONT] > 0.6) {
-    //     target_linear = 0.3;
-    //     target_angular = 1.5;
-    // }
-    // else {
-    //     target_linear = 0.3;
-    //     target_angular = 0.0;
-    // }
-    
-    // update_cmd_vel(target_linear, target_angular);
+	alpha = 1;
 
 
-	fprintf(stderr, "scan FRONT: %f\n", scan_data_[FRONT]);
-	fprintf(stderr, "scan FRONT LEFT: %f\n", scan_data_[FRONT_LEFT]);
-	fprintf(stderr, "scan LEFT FRONT: %f\n", scan_data_[LEFT_FRONT]);
-	fprintf(stderr, "scan RIGHT FRONT: %f\n", scan_data_[RIGHT_FRONT]);
+	if (test) {
+		// This should do a full rotation in 4 seconds: If it completes it in x seconds:
+		// time = x;
+		// factor = alpha;
+		// 2 * 3.1415 * alpha = 1 * time
+		// alpha = time / (2pi) <--- get the factor relating cmdvel angular velocity to real angular velocity
+		// so realw = alpha * w; Bigger alpha means it takes longer time than mathematically
+		// If we want to do a quarter turn in x time:
+		// realW = pi/4 / x
+		update_cmd_vel(0, alpha * (2 * 3.1415) / 4);
+		return;
+	}
+
+	// Use r = v / realw ->
+
+	if (near_start) {update_cmd_vel(0.0, 0.0); exit(0);} 
+	else if (scan_data_[FRONT_LEFT] < 0.19 || scan_data_[FRONT] < 0.2 || scan_data_[FRONT_RIGHT] < 0.21) {
+		// Too close to something in front so reverse
+		update_cmd_vel(-LINEAR_VELOCITY, -0.2 * alpha);
+		fprintf(stderr, "Reverse");
+	}
+	else if (scan_data_[LEFT_FRONT] >  0.5) {
+		// Left wall disappeared so do a harsher turn
+		update_cmd_vel(LINEAR_VELOCITY, 1 * alpha);
+		
+		fprintf(stderr, "Left wall not found");
+	}
+	else if (scan_data_[FRONT] < 0.6) {
+		// Turn right quickly
+		update_cmd_vel(0, -0.8 * alpha); 
+		fprintf(stderr, "Wall in Front close");
+
+		// else {
+		// 	// Turn right gradually
+		// 	update_cmd_vel(LINEAR_VELOCITY -0.9); 
+		// 	fprintf(stderr, "Wall in Front far");
+		// }
+	}
+	
+	else if (scan_data_[FRONT_LEFT] < 0.2) {
+		// Too close to wall on the left or skewed towards it 
+		update_cmd_vel(LINEAR_VELOCITY, -0.6); 
+		fprintf(stderr, "Skew away from left");
+
+	}
+	else if (scan_data_[FRONT_RIGHT] < 0.2) {
+		// Too close to wall on the right or skewed towards it 
+		update_cmd_vel(LINEAR_VELOCITY, 0.6); 
+		fprintf(stderr, "Skew away from right");
+
+	} 
+	else if (scan_data_[FRONT_LEFT] > 0.5) {
+		// Too far from wall on the left or skewed away it 
+		update_cmd_vel(LINEAR_VELOCITY 0.4); 
+		fprintf(stderr, "Skew towards Left");
+		
+	}
+	// else if (scan_data_[LEFT_FRONT] > 0.2) {
+	// 	update_cmd_vel(1, 1.5); 
+	// }
+	else {
+		update_cmd_vel(LINEAR_VELOCITY, 0.0);
+		fprintf(stderr, "Move forward");
+
+	}
+
+
+	// fprintf(stderr, "scan FRONT: %f\n", scan_data_[FRONT]);
+	// fprintf(stderr, "scan FRONT LEFT: %f\n", scan_data_[FRONT_LEFT]);
+	// fprintf(stderr, "scan LEFT FRONT: %f\n", scan_data_[LEFT_FRONT]);
+	// fprintf(stderr, "scan RIGHT FRONT: %f\n", scan_data_[RIGHT_FRONT]);
 	
 }
+
 
 
 /*******************************************************************************
@@ -296,10 +268,3 @@ int main(int argc, char ** argv)
 
 	return 0;
 }
-
-// Released under GPLv3: https://www.gnu.org/licenses/gpl-3.0.html
-// Author: Claude Sammut
-// Last Modified: 2024.10.14
-
-// Use this code as the basis for a wall follower
-

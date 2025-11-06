@@ -283,7 +283,7 @@ def get_stats(blobs, colour, node):
 		if area > largest:
 			largest = area
 			# distance = 35.772 * pow(h, -0.859) # obtained experimentally
-			if CALIBRATION_MODE:
+			if CALIBRATION_MODE:   
 				calculated_pixel_size = (CALIBRATION_DISTANCE * h) / (real_object_size * focal_length)
 				node.get_logger().info(f'Calibrated pixel size = {calculated_pixel_size:.4f} pixels/mm')
 			distance = distance_numerator / h # https://www.baeldung.com/cs/cv-compute-distance-from-object-video
@@ -307,6 +307,10 @@ def get_stats(blobs, colour, node):
 			if angle < 0:
 				angle += 360
 			rval = (cx, cy, h, distance, angle)
+
+	if (CALIBRATION_MODE):
+		print("\nHeight h: {h}, Measure the distance: ")
+		input("Press key to continue: ")
 
 	return rval
 
