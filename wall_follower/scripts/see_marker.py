@@ -95,7 +95,7 @@ class SeeMarker(Node):
 		# self.get_logger().info('Receiving compressed video frame')
 		current_frame = self.br.compressed_imgmsg_to_cv2(data)
 		height, width = current_frame.shape[:2]
-		self.get_logger().info(f'Camera resolution: {width}x{height}')
+		# self.get_logger().info(f'Camera resolution: {width}x{height}')
 		
 		# The following code is a simple example of colour segmentation
 		# and connected components analysis
@@ -118,7 +118,7 @@ class SeeMarker(Node):
 					combined_result = cv2.bitwise_or(combined_result, color_result)
 					# Check to see if the blobs are verically aligned
 					if abs(pink_x - c_x) > pink_h:
-						print(f'pink_x = {pink_x}, pink_y = {pink_y}, h = {pink_h}')
+						# print(f'pink_x = {pink_x}, pink_y = {pink_y}, h = {pink_h}')
 						continue
 
 					marker_at = PointStamped()
@@ -131,16 +131,16 @@ class SeeMarker(Node):
 					store the parker type. Ugly, but it saves creating a new message type.
 					"""
 					if c_y < pink_y:	# +y is down
-						print(c, "/ pink", f'{c_d:.2f}, {c_a:.2f}')
+						# print(c, "/ pink", f'{c_d:.2f}, {c_a:.2f}')
 						marker_at.point.z = float(marker_type.index(c + '/pink'))
 					else:
-						print("pink / ", c, f'{p_d:.2f}, {p_a:.2f}')
+						# print("pink / ", c, f'{p_d:.2f}, {p_a:.2f}')
 						marker_at.point.z = float(marker_type.index('pink/' + c))
 					
 					x, y = polar_to_cartesian(c_d, c_a)
-					self.get_logger().info(f'Polar to Cartesian: x={x:.2f} , y={y:.2f}')
+					# self.get_logger().info(f'Polar to Cartesian: x={x:.2f} , y={y:.2f}')
 					real_x_y = math.sqrt(x**2 + y**2)
-					self.get_logger().info(f'real_x_y: {real_x_y:.2f} ')
+					# self.get_logger().info(f'real_x_y: {real_x_y:.2f} ')
 
 					# x = x / 0.00174
 					# y = y / 0.00174
@@ -148,12 +148,12 @@ class SeeMarker(Node):
 					marker_at.point.y = y
 
 					distance = math.sqrt(x**2 + y**2)
-					self.get_logger().info(f'distance to marker: {distance:.2f} mm')
+					# self.get_logger().info(f'distance to marker: {distance:.2f} mm')
 
-					print(f'Camera coordinates: {x}, {y}')
+					# print(f'Camera coordinates: {x}, {y}')
 					self.point_publisher.publish(marker_at)
-					self.get_logger().info('Published Point: x=%f, y=%f, z=%f' %
-						(marker_at.point.x, marker_at.point.y, marker_at.point.z))
+					# self.get_logger().info('Published Point: x=%f, y=%f, z=%f' %
+						# (marker_at.point.x, marker_at.point.y, marker_at.point.z))
 
 		# Display camera image
 		cv2.imshow("camera", current_frame)
@@ -283,9 +283,9 @@ def get_stats(blobs, colour, node):
 		if area > largest:
 			largest = area
 			# distance = 35.772 * pow(h, -0.859) # obtained experimentally
-			if CALIBRATION_MODE:   
+			if CALIBRATION_MODE:
 				calculated_pixel_size = (CALIBRATION_DISTANCE * h) / (real_object_size * focal_length)
-				node.get_logger().info(f'Calibrated pixel size = {calculated_pixel_size:.4f} pixels/mm')
+				# node.get_logger().info(f'Calibrated pixel size = {calculated_pixel_size:.4f} pixels/mm')
 			distance = distance_numerator / h # https://www.baeldung.com/cs/cv-compute-distance-from-object-video
 			"""
 			The condition below accounts for when the marker is at the edge of the screen 
@@ -295,7 +295,7 @@ def get_stats(blobs, colour, node):
 			"""
 			# aspect_ratio = h/w
 			aspect_ratio = w/h
-			node.get_logger().info(f'{colour} LARGEST: h={h}, distance={distance:.2f}, aspect_ratio={aspect_ratio:.2f}')
+			# node.get_logger().info(f'{colour} LARGEST: h={h}, distance={distance:.2f}, aspect_ratio={aspect_ratio:.2f}')
 			# I think we need do some change for the aspect ratio as well
 			if aspect_ratio < 0.8: 
 				if cx < centre:
@@ -307,10 +307,6 @@ def get_stats(blobs, colour, node):
 			if angle < 0:
 				angle += 360
 			rval = (cx, cy, h, distance, angle)
-
-	if (CALIBRATION_MODE):
-		print("\nHeight h: {h}, Measure the distance: ")
-		input("Press key to continue: ")
 
 	return rval
 
