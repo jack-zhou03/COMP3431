@@ -303,9 +303,14 @@ def get_stats(blobs, colour, node):
 				else:
 					cx -= h-w
 			# angle = (centre - cx) * field_of_view_h / 640
-			angle = (centre - cx) * field_of_view_h / 160
+			angle = (centre - cx) * field_of_view_h / 160 + 1
+			angle_vertical = (centre - cy) * field_of_view_v / 120
+			node.get_logger().info(f'The horizontal angle is {angle:.2f} degrees, the vertical angle is {angle_vertical:.2f} degrees')
 			if angle < 0:
 				angle += 360
+				# node.get_logger().info(f'ADD 360, The horizontal angle is {angle:.2f} degrees, the vertical angle is {angle_vertical:.2f} degrees')
+				# print(f'The horizontal angle is {angle:.2f} degrees, the vertical angle is {angle_vertical:.2f} degrees')
+			
 			rval = (cx, cy, h, distance, angle)
 
 	return rval
