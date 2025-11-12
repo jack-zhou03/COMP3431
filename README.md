@@ -10,4 +10,9 @@ Wall follower and vision code
     - bring up 
 4. separate terminal check ros2 topic list 
 5. separate terminal start camera and rqt 
-6. wall follower code 
+6. wall follower code
+
+# NAV2
+Saving map command:
+ros2 run nav2_map_server map_saver_cli -f test
+
