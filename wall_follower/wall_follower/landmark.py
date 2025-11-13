@@ -14,10 +14,26 @@ from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 
 colours = {
-	"pink":	 	((140,0,0), (170, 255, 255)),
-	"blue":		((100,0,0), (130, 255, 255)),
-	"green":	((40,0,0), (80, 255, 255)),
-	"yellow":	((25,0,0), (32, 255, 255))
+	# "pink":	 	((150,140,190), (170, 170, 255)),
+	# "blue":		((85,200,190), (115, 250, 255)),
+	# "green":	((75,200,90), (85, 245, 150)),
+	# "yellow":	((20,230,175), (32, 255, 245))
+	# "pink":	 	((150,110,130), (170, 170, 255)),
+	# "blue":		((85,140,100), (115, 250, 255)),
+	# "green":	((75,190,80), (85, 245, 150)),
+	# "yellow":	((20,210,170), (32, 255, 245))
+	# "pink":	 	((140,0,0), (170, 255, 255)),
+	# "blue":		((100,0,0), (130, 255, 255)),
+	# "green":	((40,0,0), (80, 255, 255)),
+	# "yellow":	((25,0,0), (32, 255, 255))
+	"pink":	 	((140,70,100), (170, 255, 255)),
+	"blue":		((100,100,100), (130, 255, 255)),
+	"green":	((50,70,70), (99, 255, 255)),
+	"yellow":	((10,100,150), (40, 255, 255))
+	# "pink":   ((140, 60, 80), (170, 170, 255)),  # more strict
+	# "blue":		((100,0,0), (130, 255, 255)),
+ 	# "green":	((40,0,0), (80, 255, 255)),
+	# "yellow": ((20, 90, 90), (32, 255, 245))
 }
 
 
@@ -45,7 +61,7 @@ class Landmark:
 
 	def __init__(self, mtype, markers):
 		self.mtype = mtype
-		self.count = 0;
+		self.count = 0
 		self.sum_x = 0.0
 		self.sum_y = 0.0
 		self.top_marker = None
@@ -59,22 +75,38 @@ class Landmark:
 			return []
 
 
-	def update_position(self, new_point):
+	# def update_position(self, new_point):
+	# 	if self.count == 0:
+	# 		self.add_marker()
+
+	# 	self.count += 1
+	# 	self.sum_x += new_point.x
+	# 	self.sum_y += new_point.y
+
+	# 	new_x = self.sum_x/self.count
+	# 	new_y = self.sum_y/self.count
+
+	# 	self.top_marker.pose.position.x = new_x
+	# 	self.top_marker.pose.position.y = new_y
+	# 	self.bottom_marker.pose.position.x = new_x
+	# 	self.bottom_marker.pose.position.y = new_y
+
+	def update_position(self, new_point, alpha=0.1):
 		if self.count == 0:
 			self.add_marker()
-
+			self.sum_x = new_point.x
+			self.sum_y = new_point.y
+		else:
+			# EMA: new_value = alpha * new_observe + (1 - alpha) * old_value
+			self.sum_x = alpha * new_point.x + (1 - alpha) * self.sum_x
+			self.sum_y = alpha * new_point.y + (1 - alpha) * self.sum_y
+		
 		self.count += 1
-		self.sum_x += new_point.x
-		self.sum_y += new_point.y
-
-		new_x = self.sum_x/self.count
-		new_y = self.sum_y/self.count
-
-		self.top_marker.pose.position.x = new_x
-		self.top_marker.pose.position.y = new_y
-		self.bottom_marker.pose.position.x = new_x
-		self.bottom_marker.pose.position.y = new_y
-
+		
+		self.top_marker.pose.position.x = self.sum_x
+		self.top_marker.pose.position.y = self.sum_y
+		self.bottom_marker.pose.position.x = self.sum_x
+		self.bottom_marker.pose.position.y = self.sum_y
 
 	def add_marker(self):
 		self.top_marker = self.make_half_marker(0)
