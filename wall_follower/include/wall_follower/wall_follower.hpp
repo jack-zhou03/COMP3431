@@ -41,7 +41,7 @@
 #define RIGHT_FRONT	10
 #define FRONT_RIGHT	11
 
-#define LINEAR_VELOCITY  0.3
+#define LINEAR_VELOCITY  0.1
 #define ANGULAR_VELOCITY 1.5
 
 
