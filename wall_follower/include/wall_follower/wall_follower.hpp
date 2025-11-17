@@ -24,6 +24,8 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
+#include <unistd.h>
+
 
 #define DEG2RAD (M_PI / 180.0)
 #define RAD2DEG (180.0 / M_PI)
@@ -63,7 +65,12 @@ private:
 	double robot_pose_;
 	double start_x, start_y;
 	bool near_start; 
+	bool start_pose_saved_;
+	double start_heading_;
 	double scan_data_[12];
+	int alpha_;
+	bool test;
+	int numScans;
 
 	// ROS timer
 	rclcpp::TimerBase::SharedPtr update_timer_;
@@ -75,5 +82,6 @@ private:
 	void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
 	void smooth_cmd_vel(double target_linear, double target_angular);
 	void Controller(double front_distance, double left_distance);
+	void save_start_position();
 };
 #endif  // TURTLEBOT3_GAZEBO__TURTLEBOT3_DRIVE_HPP_
