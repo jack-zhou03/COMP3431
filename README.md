@@ -16,3 +16,8 @@ Wall follower and vision code
 Saving map command:
 ros2 run nav2_map_server map_saver_cli -f test
 
+To get the coordinates on rviz, open rviz and put waypoint markers 
+ros2 topic echo waypoint_ ndoes or list
+If you scroll, you will see it has an attribute for marker type thats numbered for according to the marker added on rviz
+note that not every marker is labeled so make sure to check before
+
