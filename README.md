@@ -21,3 +21,6 @@ ros2 topic echo waypoint_ ndoes or list
 If you scroll, you will see it has an attribute for marker type thats numbered for according to the marker added on rviz
 note that not every marker is labeled so make sure to check before
 
+run this with config inside wall follower folder 
+ros2 launch turtlebot3_navigation2 navigation2.launch.py use_sim_time:=true map:=/home/pi/turtlebot3_ws/test.yaml params_file:=/home/pi/turtlebot3_ws/src/wall_follower/config/waffle_pi.yaml
+
