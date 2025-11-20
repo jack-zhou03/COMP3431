@@ -1,11 +1,7 @@
 #include "wall_follower/wall_follower.hpp"
 
 #include <memory>
-
-
-
-
-
+#include <rclcpp/executors.hpp>
 using namespace std::chrono_literals;
 
 WallFollower::WallFollower()
@@ -15,11 +11,11 @@ WallFollower::WallFollower()
 	** Initialise variables
 	************************************************************/
 	for (int i = 0; i < 12; i++)
-		scan_data_[i] = 0.0;
+		scan_data_[i] = 3.0;
 
 	robot_pose_ = 0.0;
 	near_start = false;
-	numScans = -1;
+	numScans = -700;
 
 
 	/************************************************************
@@ -29,6 +25,7 @@ WallFollower::WallFollower()
 
 	// Initialise publishers
 	cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", qos);
+		// near_start = true;
 
 	// Initialise subscribers
 	scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
@@ -45,7 +42,7 @@ WallFollower::WallFollower()
 	** Initialise ROS timers
 	************************************************************/
 	update_timer_ = this->create_wall_timer(10ms, std::bind(&WallFollower::update_callback, this));
-	update_timer_ = this->create_wall_timer(10ms, std::bind(&WallFollower::update_callback, this));
+	// update_timer_ = this->create_wall_timer(10ms, std::bind(&WallFollower::update_callback, this));
 
 	RCLCPP_INFO(this->get_logger(), "Wall follower node has been initialised");
 }
@@ -94,8 +91,7 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 	else if (fabs(current_x - start_x) < START_RANGE && fabs(current_y - start_y) < START_RANGE)
 	{
 		fprintf(stderr, "Near start!!\n");
-		// near_start = true;
-		// near_start = true;
+		near_start = true;
 		first = true;
 		start_moving = true;
 	}
@@ -107,6 +103,7 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
+	fprintf(stderr, "Scan callback\n");
 	uint16_t scan_angle[12] = {0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330};
 
 	double closest = msg->range_max;
@@ -195,23 +192,16 @@ void WallFollower::update_callback()
 	int alpha = 1;
 	fprintf(stderr, "%d\n", numScans);
 
-	if (test) {
-		// This should do a full rotation in 4 seconds: If it completes it in x seconds:
-		// time = x;
-		// factor = alpha;
-		// 2 * 3.1415 * alpha = 1 * time
-		// alpha = time / (2pi) <--- get the factor relating cmdvel angular velocity to real angular velocity
-		// so realw = alpha * w; Bigger alpha means it takes longer time than mathematically
-		// If we want to do a quarter turn in x time:
-		// realW = pi/4 / x
-		update_cmd_vel(0, 3.1415/2);
+	if (numScans < -1) {
+		numScans++;
+		update_cmd_vel(0,0);
 		return;
 	}
 	
 	// Use r = v / realw ->
 
 	if (near_start) {update_cmd_vel(0.0, 0.0); exit(0);} 
-	else if ((scan_data_[LEFT] < 0.55 && scan_data_[FRONT] < 0.44 && scan_data_[RIGHT] < 0.55) || numScans >= 0) {
+	else if ((scan_data_[LEFT] < 0.5 && scan_data_[FRONT] < 0.44 && scan_data_[RIGHT] < 0.5) || numScans >= 0) {
 		// Too close to something in front so reverse
 		numScans++;
 		if (numScans > 390) {
@@ -227,7 +217,7 @@ void WallFollower::update_callback()
 		update_cmd_vel(LINEAR_VELOCITY+0.05, 0.4);
 		fprintf(stderr, "Left wall not found\n");
 	}
-	else if (scan_data_[FRONT] < 0.42) {
+	else if (scan_data_[FRONT] < 0.45) {
 		// Turn right quickly
 		update_cmd_vel(0, -0.8); 
 		fprintf(stderr, "Wall in Front close\n");
@@ -267,10 +257,10 @@ void WallFollower::update_callback()
 	}
 
 
-	// fprintf(stderr, "scan FRONT: %f\n", scan_data_[FRONT]);
-	// fprintf(stderr, "scan FRONT LEFT: %f\n", scan_data_[FRONT_LEFT]);
-	// fprintf(stderr, "scan LEFT FRONT: %f\n", scan_data_[LEFT_FRONT]);
-	// fprintf(stderr, "scan RIGHT FRONT: %f\n", scan_data_[RIGHT_FRONT]);
+	fprintf(stderr, "scan FRONT: %f\n", scan_data_[FRONT]);
+	fprintf(stderr, "scan FRONT LEFT: %f\n", scan_data_[FRONT_LEFT]);
+	fprintf(stderr, "scan LEFT FRONT: %f\n", scan_data_[LEFT_FRONT]);
+	fprintf(stderr, "scan RIGHT FRONT: %f\n", scan_data_[RIGHT_FRONT]);
 	
 	
 }
@@ -289,3 +279,17 @@ int main(int argc, char ** argv)
 
 	return 0;
 }
+
+// int main(int argc, char ** argv)
+// {
+//     rclcpp::init(argc, argv);
+    
+//     // 使用多线程执行器
+//     auto node = std::make_shared<WallFollower>();
+//     rclcpp::executors::MultiThreadedExecutor executor;
+//     executor.add_node(node);
+//     executor.spin();
+    
+//     rclcpp::shutdown();
+//     return 0;
+// }
